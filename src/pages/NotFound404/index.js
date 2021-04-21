@@ -1,7 +1,7 @@
-export default function Main() {
+export default function NotFound404() {
   return (
     <div>
-      Main Page
+      NOT FOUND.
     </div>
   );
 }
