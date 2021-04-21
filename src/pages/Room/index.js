@@ -45,7 +45,7 @@ export default function Room() {
     }}>
       {clients.map((clientID, index) => {
         return (
-          <div key={clientID} style={videoLayout[index]}>
+          <div key={clientID} style={videoLayout[index]} id={clientID}>
             <video
               width='100%'
               height='100%'

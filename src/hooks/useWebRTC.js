@@ -6,13 +6,18 @@ import ACTIONS from '../socket/actions';
 
 export const LOCAL_VIDEO = 'LOCAL_VIDEO';
 
+
 export default function useWebRTC(roomID) {
   const [clients, updateClients] = useStateWithCallback([]);
 
   const addNewClient = useCallback((newClient, cb) => {
-    if (!clients.includes(newClient)) {
-      updateClients(list => [...list, newClient], cb);
-    }
+    updateClients(list => {
+      if (!list.includes(newClient)) {
+        return [...list, newClient]
+      }
+
+      return list;
+    }, cb);
   }, [clients, updateClients]);
 
   const peerConnections = useRef({});
@@ -45,12 +50,22 @@ export default function useWebRTC(roomID) {
         tracksNumber++
 
         if (tracksNumber === 2) { // video & audio tracks received
+          tracksNumber = 0;
           addNewClient(peerID, () => {
             if (peerMediaElements.current[peerID]) {
               peerMediaElements.current[peerID].srcObject = remoteStream;
             } else {
-              setTimeout(() => {
-                peerMediaElements.current[peerID].srcObject = remoteStream;
+              // FIX LONG RENDER IN CASE OF MANY CLIENTS
+              let settled = false;
+              const interval = setInterval(() => {
+                if (peerMediaElements.current[peerID]) {
+                  peerMediaElements.current[peerID].srcObject = remoteStream;
+                  settled = true;
+                }
+
+                if (settled) {
+                  clearInterval(interval);
+                }
               }, 1000);
             }
           });
@@ -73,12 +88,16 @@ export default function useWebRTC(roomID) {
       }
     }
 
-    socket.on(ACTIONS.ADD_PEER, handleNewPeer)
+    socket.on(ACTIONS.ADD_PEER, handleNewPeer);
+
+    return () => {
+      socket.off(ACTIONS.ADD_PEER);
+    }
   }, []);
 
   useEffect(() => {
     async function setRemoteMedia({peerID, sessionDescription: remoteDescription}) {
-      await  peerConnections.current[peerID].setRemoteDescription(
+      await peerConnections.current[peerID]?.setRemoteDescription(
         new RTCSessionDescription(remoteDescription)
       );
 
@@ -95,14 +114,22 @@ export default function useWebRTC(roomID) {
     }
 
     socket.on(ACTIONS.SESSION_DESCRIPTION, setRemoteMedia)
+
+    return () => {
+      socket.off(ACTIONS.SESSION_DESCRIPTION);
+    }
   }, []);
 
   useEffect(() => {
     socket.on(ACTIONS.ICE_CANDIDATE, ({peerID, iceCandidate}) => {
-      peerConnections.current[peerID].addIceCandidate(
+      peerConnections.current[peerID]?.addIceCandidate(
         new RTCIceCandidate(iceCandidate)
       );
     });
+
+    return () => {
+      socket.off(ACTIONS.ICE_CANDIDATE);
+    }
   }, []);
 
   useEffect(() => {
@@ -118,6 +145,10 @@ export default function useWebRTC(roomID) {
     };
 
     socket.on(ACTIONS.REMOVE_PEER, handleRemovePeer);
+
+    return () => {
+      socket.off(ACTIONS.REMOVE_PEER);
+    }
   }, []);
 
   useEffect(() => {

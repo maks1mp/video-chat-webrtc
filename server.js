@@ -53,10 +53,14 @@ io.on('connection', socket => {
     const {rooms} = socket;
 
     Array.from(rooms)
+      // LEAVE ONLY CLIENT CREATED ROOM
+      .filter(roomID => validate(roomID) && version(roomID) === 4)
       .forEach(roomID => {
+
         const clients = Array.from(io.sockets.adapter.rooms.get(roomID) || []);
 
-        clients.forEach(clientID => {
+        clients
+          .forEach(clientID => {
           io.to(clientID).emit(ACTIONS.REMOVE_PEER, {
             peerID: socket.id,
           });
